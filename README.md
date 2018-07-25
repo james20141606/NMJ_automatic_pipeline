@@ -18,7 +18,7 @@ It is a 3D U-net with several enhancements:
 
 ## Dataset
 
-W11 and deeper of NMJ EM data. In seperate masks.
+W11 and deeper of NMJ EM data. In seperate masks. Export segment data with seeding point on it.
 
 ## Training
 
