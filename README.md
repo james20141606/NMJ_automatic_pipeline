@@ -32,6 +32,13 @@ Predict image
 ![](https://github.com/james20141606/Summer_Intern/blob/master/NMJ/plot/predict.png)
 
 It seems the training is quite well after only thousands batches within one hour.
+## 3D U-net
+
+<img src="https://github.com/james20141606/Summer_Intern/blob/master/synapse_prediction/plot/Digraph.gv-1.png" style="width: 2px;"/>
+
+## 2D D-Linknet
+
+![](https://github.com/james20141606/NMJ_automatic_pipeline/blob/master/10.png)
 
 ##  Automatically seeding
 The traditional way is to manually put seeds on each axon, but we have approximately 50,000 sections if all masks are generated, it is so time-consuming to manually put seeds. I will g**enerate seeds by distance transformation from membrane**
