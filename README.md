@@ -6,12 +6,15 @@ So at first we will prepare the data, use some methods to generate more, and we 
 
 #### Data  preparation
 - Extract axon segment (from Marco’s data)
+
 ![Markdown](http://i2.tiimg.com/640680/9d013476a19d3dd8.png) 
+
 ![Markdown](http://i2.tiimg.com/640680/3c2d8c2fe9cab2e7.png)
 
 - Convert all segments to same color
 	- Training:	1200
 	- Validation: 200
+	
 ![Markdown](http://i2.tiimg.com/640680/9e61c84bcda13810.png)
 
 At first we use KK and marco’s data as training and validation sample. We convert the segment to same color as binary mask
@@ -21,12 +24,15 @@ At first we use KK and marco’s data as training and validation sample. We conv
 - Simple augmentation: 
 	- flip of x, y, (z); 
 	- 90 degree rotation.
+	
 ![Markdown](http://i2.tiimg.com/640680/688954a7b2f85b05.png)
 
 - Intensity augmentation.
+
 ![Markdown](http://i2.tiimg.com/640680/d7f84ed10dc6977f.png)
 
 - Elastic augmentation
+
 ![Markdown](http://i1.fuimg.com/640680/3e78d3e458b063b3.png)
 
 #####  Test:
@@ -40,11 +46,13 @@ We have discussed a lot about the prediction model, after a long time’s try, t
 
 3D U-net with res block  (not very good)
 2D D-LinkNet: encoder-decoder, res block, dilation.
+
 ![Markdown](http://i2.tiimg.com/640680/70f0977b0a1fdfa5.png)
 
 
 - Loss: 
 BCE+DICE loss(It seems remove DICE may have better result)
+
 ![Markdown](http://i2.tiimg.com/640680/3b59f2842eaf0b18.png)
 
 ![Markdown](http://i2.tiimg.com/640680/713830f2720ff701.png)
