@@ -1,4 +1,78 @@
 
+![Markdown](http://i2.tiimg.com/640680/584c64fdaf11c64e.png)
+
+This work is inspired from yaron and marco’s great work on automatically prediction membrane on bundle. And we are thinking, if we only care about tracing, maybe we can automatically trace the axon with little manual label. Since the bundle data is sparse and the shift of the z section is big, we may use a simpler yet more robust way to automaticaly trace.
+So at first we will prepare the data, use some methods to generate more, and we will do segment prediction to get a segment and post process it, then use matching algorithm to trace each axon.
+
+#### Data  preparation
+- Extract axon segment (from Marco’s data)
+![Markdown](http://i2.tiimg.com/640680/9d013476a19d3dd8.png) 
+![Markdown](http://i2.tiimg.com/640680/3c2d8c2fe9cab2e7.png)
+
+- Convert all segments to same color
+	- Training:	1200
+	- Validation: 200
+![Markdown](http://i2.tiimg.com/640680/9e61c84bcda13810.png)
+
+At first we use KK and marco’s data as training and validation sample. We convert the segment to same color as binary mask
+
+#### Data Augmentation
+### Training:
+- Simple augmentation: 
+	- flip of x, y, (z); 
+	- 90 degree rotation.
+![Markdown](http://i2.tiimg.com/640680/688954a7b2f85b05.png)
+
+- Intensity augmentation.
+![Markdown](http://i2.tiimg.com/640680/d7f84ed10dc6977f.png)
+
+- Elastic augmentation
+![Markdown](http://i1.fuimg.com/640680/3e78d3e458b063b3.png)
+
+#####  Test:
+Simple augmentation(16 combination)
+
+Several augmentation methods are applied here to generate more training data, we have simple augmentation, intensity and elastic augmentation. For test part, we do all kinds of simple augmentation to get the average result
+Although the augmentation May not have the strong biological meaning, but it is always useful to optimize the model better.
+
+#### Prediction Model
+We have discussed a lot about the prediction model, after a long time’s try, the 2D Dlinknet (adjustmen of U-net) finally works.
+
+3D U-net with res block  (not very good)
+2D D-LinkNet: encoder-decoder, res block, dilation.
+![Markdown](http://i2.tiimg.com/640680/70f0977b0a1fdfa5.png)
+
+
+- Loss: 
+BCE+DICE loss(It seems remove DICE may have better result)
+![Markdown](http://i2.tiimg.com/640680/3b59f2842eaf0b18.png)
+
+![Markdown](http://i2.tiimg.com/640680/713830f2720ff701.png)
+
+Now we use a deep learning model to predict segmentation. I tried 3D U-net and 2D Link net to predict segment. It seems the 2D model is easier to train, for it has less parameters to tune and our data may have a big shift cross z-section. The model is similar to U-net, and the loss function we use is the combination of DICE loss and focal loss, which depict the overlap and difference of ground truth and prediction. The loss function decreases as training goes on.
+
+which adopts encoderdecoder structure, dilated convolution and pretrained encoder, D-LinkNet architecture. Each blue rectangular block represents a multi-channel features map. Part A is the encoder of D-LinkNet. D-LinkNet uses ResNet34 as encoder. Part C is the decoder of D-LinkNet, it is set the same as LinkNet decoder. Original LinkNet only has Part A and Part C. D-LinkNet has an additional Part B which can enlarge the receptive field and as well as preserve the detailed spatial information. Each convolution layer is followed by a ReLU activation except the last convolution layer which use sigmoid activation.
+
+reduces the relative loss for well-classified examples (pt > .5), putting more focus on hard, misclassified examples. (we propose to reshape the loss function to down-weight easy examples and thus focus training on hard negatives. More formally, we propose to add a modulating factor (1 − pt) γ to the cross entropy loss, with tunable focusing parameter γ ≥ 0. We define the focal loss as)
+
+#### Prediction Result
+### Post processing:
+- Bilateral filter
+- Erosion
+- Dilation
+
+![Markdown](http://i2.tiimg.com/640680/3ccf827be716fafb.png)
+
+I did some post processing work on prediction, using bilateral filter to remove some noise, Bilateral filter is better than gaussian filter. and use erosion and dilation to remove the potential merge of different connected region, since it is important to get sparse segment for next matching step, the dilation will make the segment smaller than the ground truth.
+I evaluate it on validation set and the dice coefficient is acceptable since most of the region overlaps well.
+Evaluation on Validation set
+
+
+![Markdown](http://i2.tiimg.com/640680/e24603eb94d53f89.png)
+
+![Markdown](http://i2.tiimg.com/640680/840d29a47250f731.png)
+
+
 # Automatically skeletonize and segmentation
 
 
