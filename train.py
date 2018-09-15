@@ -5,10 +5,10 @@ import pickle, h5py, time, argparse, itertools, datetime
 import torch
 import torch.nn as nn
 import torch.utils.data
-import torchvision
 from libs import SynapseDataset, collate_fn, res_unet, res_unet_plus
 from libs import BCLoss, WeightedBCELoss, FocalLoss, BCLoss_focal
 from tqdm import tqdm
+import torchvision
 # from dataset import SynapseDataset, collate_fn
 # from loss import WeightedBCELoss
 # from model import res_unet
@@ -19,17 +19,17 @@ from tensorboardX import SummaryWriter
 def get_args():
     parser = argparse.ArgumentParser(description='Training Synapse Detection Model')
     # I/O
-    parser.add_argument('-t','--train',  default='data/train_set/',
+    parser.add_argument('-t','--train',  default='/n/coxfs01/',
                         help='Input folder (train)')
     # parser.add_argument('-v','--val',  default='',
     #                     help='input folder (test)')
-    parser.add_argument('-dn', '--img-name',  default='em_51',
+    parser.add_argument('-dn','--img-name',  default='im_uint8.h5',
                         help='Image data path')
-    parser.add_argument('-ln', '--seg-name',  default='mask_51',
+    parser.add_argument('-ln','--seg-name',  default='seg-groundtruth2-malis.h5',
                         help='Ground-truth label path')
     parser.add_argument('-o','--output', default='result/train/',
                         help='Output path')
-    parser.add_argument('-mi','--model-input', type=str,  default='8,256,256',
+    parser.add_argument('-mi','--model-input', type=str,  default='31,204,204',
                         help='I/O size of deep network')
 
     # model option
@@ -60,6 +60,8 @@ def get_args():
                         help='Number of cpu')
     parser.add_argument('-b','--batch-size', type=int,  default=1,
                         help='Batch size')
+    parser.add_argument('-ag', '--augment', type=str,  default=True,
+                        help='if use data augmentation')
     args = parser.parse_args()
     return args
 
@@ -80,17 +82,12 @@ def get_input(args, model_io_size, opt='train'):
 
     if opt=='train':
         dir_name = args.train
-        #dir_name = args.train.split('@')
+            #dir_name = args.train.split('@')
         num_worker = args.num_cpu
         img_name = args.img_name
         seg_name = args.seg_name
         #img_name = args.img_name.split('@')
         #seg_name = args.seg_name.split('@')
-    else:
-        dir_name = args.val.split('@')
-        num_worker = 1
-        img_name = args.img_name_val.split('@')
-        seg_name = args.seg_name_val.split('@')
 
     # may use datasets from multiple folders
     # should be either one or the same as dir_name
@@ -120,8 +117,10 @@ def get_input(args, model_io_size, opt='train'):
         print("synapse pixels: ", np.sum(train_label[i]))
         print("volume shape: ", train_input[i].shape)    
 
+    data_aug = True
+    print('Data augmentation: ', data_aug)
     dataset = SynapseDataset(volume=train_input, label=train_label, vol_input_size=model_io_size, \
-                                 vol_label_size=model_io_size, data_aug = None, mode = 'train')
+                                 vol_label_size=model_io_size, data_aug = data_aug, mode = 'train')
     # to have evaluation during training (two dataloader), has to set num_worker=0
     SHUFFLE = (opt=='train')
     img_loader =  torch.utils.data.DataLoader(
@@ -144,27 +143,45 @@ def train(args, train_loader, model, device, criterion, optimizer, logger, write
     # switch to train mode
     model.train()
     volume_id = 0
-    print ('entering loop')
+
     for i, (volume, label, class_weight, weight_factor) in tqdm(enumerate(train_loader)):
         volume_id += args.batch_size
-        #print ('entered loop')
+        print ('training',i,volume.size(), label.size())
         # restrict the weight
-        class_weight.clamp(max=1000)
-        #print (i)
-        
+        class_weight.clamp(max=50)
+        #volume = torch.stack((volume,)*3,1)
+        #print ('change to three channels',volume.size())
         # for gpu computing
         # print(weight_factor)
         volume, label = volume.to(device), label.to(device)
         class_weight = class_weight.to(device)
         output = model(volume)
-        focal, dice = criterion(output, label, class_weight)
-        loss = focal + dice
-        if i % 20 == 0:
+        if args.loss >1:
+            focal, dice = criterion(output, label, class_weight)
+            loss = focal + dice
+        elif args.loss ==1:
+            loss = criterion(output, label, class_weight)
+        #print (volume.size())
+        '''
+        if i % 500 == 0:
             #draw image every 20 batches
-            writer.add_image('EM image '+str(i),
-                             torchvision.utils.make_grid(volume), i)
-            writer.add_image('GT image '+str(i), torchvision.utils.make_grid(label), i)
-            writer.add_image('predict image '+str(i), torchvision.utils.make_grid(output), i)
+            print (list(volume.size()))
+            if list(volume.size())[0] >1:
+                writer.add_image('EM image '+str(i),
+                            volume[0], i)
+                writer.add_image('GT image '+str(i),
+                                 label[0], i)
+                writer.add_image('predict image '+str(i),
+                                 torchvision.utils.make_grid(output[0]), i)
+            else:
+                writer.add_image('EM image '+str(i),
+                                torchvision.utils.make_grid(volume), i)
+                writer.add_image('GT image '+str(i),
+                                torchvision.utils.make_grid(label), i)
+                writer.add_image('predict image '+str(i),
+                                torchvision.utils.make_grid(output), i)
+        '''
+        # loss = criterion(output, label, class_weight)
         # loss = criterion(output, label, class_weight)
 
         # compute gradient and do Adam step
@@ -176,8 +193,9 @@ def train(args, train_loader, model, device, criterion, optimizer, logger, write
                 loss.item(), optimizer.param_groups[0]['lr']))
         writer.add_scalar('train_loss', loss.item(), volume_id)
         # writer.add_scalar('bce_loss', bce.item(), volume_id)
-        writer.add_scalar('dice_loss', dice.item(), volume_id)
-        writer.add_scalar('focal_loss', focal.item(), volume_id)
+        if args.loss >1:
+            writer.add_scalar('dice_loss', dice.item(), volume_id)
+            writer.add_scalar('focal_loss', focal.item(), volume_id)
 
         # LR update
         #if args.lr > 0:
@@ -223,7 +241,7 @@ def main():
     elif args.loss == 3: 
         criterion = FocalLoss()
     elif args.loss == 4:
-        criterion = BCLoss_focal(smooth=200.0, gamma=2)
+        criterion = BCLoss_focal(smooth=200.0, gamma=1)
     print('Type of loss function: ', args.loss)    
 
     print('3. setup optimizer')
