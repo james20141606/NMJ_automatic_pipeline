@@ -1,3 +1,7 @@
+# Automatic segmentation for NMJ
+
+Also see my [website page](https://www.cmwonderland.com/blog/2018/09/12/100_summer_intern/)
+
 
 ![Markdown](http://i2.tiimg.com/640680/584c64fdaf11c64e.png)
 
